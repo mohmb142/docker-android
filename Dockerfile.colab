@@ -1,16 +1,54 @@
-FROM android-emulator
+# Colab-only image. The original Dockerfile remains unchanged.
+FROM eclipse-temurin:25-jdk-jammy
 
-RUN apt-get update && apt-get install -y \
-    xvfb \
-    x11vnc \
-    fluxbox \
-    novnc \
-    websockify \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
+
+RUN set -eux; \
+    for i in 1 2 3 4 5; do \
+      apt-get update && break || { apt-get clean; rm -rf /var/lib/apt/lists/*; sleep 3; }; \
+    done; \
+    apt-get install -y --no-install-recommends \
+      curl sudo wget unzip bzip2 ca-certificates \
+      libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev libnss3 \
+      libxcursor1 libpulse-dev libxshmfence-dev \
+      xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2 socat \
+      novnc websockify; \
+    rm -rf /var/lib/apt/lists/*
+
+ARG API_LEVEL=33
+ARG IMG_TYPE=google_apis
+ARG ARCHITECTURE=x86_64
+ARG CMD_LINE_VERSION=9477386_latest
+ARG DEVICE_ID=pixel
+ARG GPU_ACCELERATED=false
+
+ENV ANDROID_SDK_ROOT=/opt/android \
+    ANDROID_PLATFORM_VERSION="platforms;android-$API_LEVEL" \
+    PACKAGE_PATH="system-images;android-${API_LEVEL};${IMG_TYPE};${ARCHITECTURE}" \
+    API_LEVEL=$API_LEVEL \
+    DEVICE_ID=$DEVICE_ID \
+    ARCHITECTURE=$ARCHITECTURE \
+    ABI=${IMG_TYPE}/${ARCHITECTURE} \
+    GPU_ACCELERATED=$GPU_ACCELERATED \
+    QTWEBENGINE_DISABLE_SANDBOX=1 \
+    ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL=10 \
+    ANDROID_AVD_HOME=/data
+
+ENV PATH="${PATH}:${ANDROID_SDK_ROOT}/platform-tools:${ANDROID_SDK_ROOT}/emulator:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"
+ENV LD_LIBRARY_PATH="$ANDROID_SDK_ROOT/emulator/lib64:$ANDROID_SDK_ROOT/emulator/lib64/qt/lib"
+
+WORKDIR /opt
+EXPOSE 5554 5555 6080
+
+RUN mkdir -p /root/.android /data && touch /root/.android/repositories.cfg
+COPY keys/* /root/.android/
+
+COPY scripts/install-sdk.sh /opt/install-sdk.sh
+RUN chmod +x /opt/install-sdk.sh
+RUN /opt/install-sdk.sh
 
 COPY scripts/colab-start.sh /opt/colab-start.sh
 RUN chmod +x /opt/colab-start.sh
-
-EXPOSE 5555 6080
 
 ENTRYPOINT ["/opt/colab-start.sh"]
