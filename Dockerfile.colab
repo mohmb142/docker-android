@@ -1,0 +1,16 @@
+FROM android-emulator
+
+RUN apt-get update && apt-get install -y \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    novnc \
+    websockify \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/colab-start.sh /opt/colab-start.sh
+RUN chmod +x /opt/colab-start.sh
+
+EXPOSE 5555 6080
+
+ENTRYPOINT ["/opt/colab-start.sh"]
