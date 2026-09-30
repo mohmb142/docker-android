@@ -25,10 +25,10 @@ docker info >/dev/null 2>&1 || {
 
 echo "Docker daemon is ready."
 
-# Build only the Colab image. The original Dockerfile is intentionally
-# untouched and is not used here, so a Colab-specific base/dependency
-# issue cannot break the normal project image.
-docker build --progress=plain -f Dockerfile.colab -t android-colab .
+# Colab blocks Docker bridge/NAT networking. Use host networking for the
+# BUILD as well as the final container so apt/wget can reach the internet.
+echo "=== Building Colab image with host networking ==="
+docker build --network=host --progress=plain -f Dockerfile.colab -t android-colab .
 
 docker rm -f android-colab >/dev/null 2>&1 || true
 
@@ -40,7 +40,7 @@ docker run -d \
 sleep 10
 echo
 echo "=== Android container logs ==="
-docker logs android-colab --tail 80 || true
+docker logs android-colab --tail 100 || true
 
 if [ ! -x /content/cloudflared ]; then
   wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /content/cloudflared
